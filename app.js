@@ -1,9 +1,8 @@
+#!/usr/bin/env node
 
 const readline = require('readline');
 const fs = require('fs');
-
-
-// const readline = require('readline');
+const {spawn} = require('child_process');
 const minimist = require('minimist');
 const _ = require('lodash');
 
@@ -28,28 +27,59 @@ const xmodmapFile = `${__dirname}/xmodmap-as-expressions.log`;
  * @type {[type]}
  */
 
- let args = minimist(process.argv.slice(2), {
-     alias: {
-         h: 'help',
-         v: 'version',
-         f: 'filename'
-     }
- });
- 
- console.info('process args', args);
- 
- if (!args.filename) {
-   console.error('Please provide a file to analyse `node app.js -f <filename>`');
-   process.exit();
- }
- 
- let keyList = {};
+let args = minimist(process.argv.slice(2), {
+   alias: {
+       h: 'help',
+       v: 'version',
+       f: 'filename',
+       i: 'deviceId'
+   }
+});
 
- let previous = {};
- let current = {};
- let lineCount = 0;
- let keyEvent = [];
- let keyEvents = [];
+console.info('process args', args);
+
+if (!args.filename) {
+ console.error('Please provide a file to analyse `node app.js -f <filename>`');
+ process.exit();
+}
+
+if (!args.deviceId) {
+  console.error('Please provide a deviceId to analyse `node app.js -i <deviceId>`. Use `xinput list` to discover the id of the keyboard');
+    process.exit();
+}
+// let command = `xinput `;
+let command = `xinput`;
+let arguments = [`test`, `${args.deviceId}`];
+let captureProcess = spawn(command, args);
+
+captureProcess.on('exit', (code, signal) => {
+  console.info('exit', code, signal);
+});
+captureProcess.on('error', (error) => {
+  console.info('error', error);
+});
+captureProcess.on('close', (number, signal) => {
+  console.info('close', number, signal);
+});
+captureProcess.on('message', (message) => {
+  console.info('message', message);
+});
+
+captureProcess.stdout.on('data', (data) => {
+  console.log(`child stdout:\n${data}`);
+});
+
+captureProcess.stderr.on('data', (data) => {
+  console.error(`child stderr:\n${data}`);
+});
+
+let keyList = {};
+
+let previous = {};
+let current = {};
+let lineCount = 0;
+let keyEvent = [];
+let keyEvents = [];
 
 let xmodmapReader = readline.createInterface({
   input: fs.createReadStream(xmodmapFile)
