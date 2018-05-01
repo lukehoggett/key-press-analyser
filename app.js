@@ -1,5 +1,5 @@
 
-import readline from 'readline';
+const readline = require('readline');
 const fs = require('fs');
 
 
@@ -7,8 +7,11 @@ const fs = require('fs');
 const minimist = require('minimist');
 const _ = require('lodash');
 
-// const loggingFile = `${__dirname}/key-logger.log`;
-const loggingFileGlob = `${__dirname}/key-log-*.log`;
+// const loggingFile = `${__dirname}/data/key-logger.log`;
+
+const loggingFile = `${__dirname}/data/viterbi-right-01.log`;
+// const loggingFileGlob = `${__dirname}/key-log-*.log`;
+// const loggingFileGlob = `${__dirname}/viterbi*.log`;
 const xmodmapFile = `${__dirname}/xmodmap-as-expressions.log`;
 
 /**
