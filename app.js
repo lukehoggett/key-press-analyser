@@ -50,11 +50,12 @@ if (!args.deviceId) {
 // let command = `xinput `;
 let command = `xinput`;
 let arguments = [`test`, `${args.deviceId}`];
-let captureProcess = spawn(command, args);
+let captureProcess = spawn(command, arguments);
+console.info(args.deviceId);
 
 captureProcess.on('exit', (code, signal) => {
   console.info('exit', code, signal);
-});
+}); 
 captureProcess.on('error', (error) => {
   console.info('error', error);
 });
@@ -66,15 +67,15 @@ captureProcess.on('message', (message) => {
 });
 
 captureProcess.stdout.on('data', (data) => {
-  console.log(`child stdout:\n${data}`);
+  console.log(`${data}`);
 });
 
 captureProcess.stderr.on('data', (data) => {
-  console.error(`child stderr:\n${data}`);
+  console.error(`stderr: ${data}`);
 });
 
 let keyList = {};
-
+ 
 let previous = {};
 let current = {};
 let lineCount = 0;
