@@ -66,8 +66,9 @@ captureProcess.on('message', (message) => {
   console.info('message', message);
 });
 
-captureProcess.stdout.on('data', (data) => {
-  console.log(`${data}`);
+captureProcess.stdout.on('data', (data) => { 
+  let keyData = data.toString().replace(/\r?\n?/g, '');
+  console.log(`${keyData}`, parseKeyLog(keyData)); 
 });
 
 captureProcess.stderr.on('data', (data) => {
@@ -114,6 +115,7 @@ function saveXmodmap() {
 
 function parseKeyLog(line) {
   const lineParts = line.split(' ').filter(part => part.length !== 0);
+  const lineParts = line.split(' ').filter(part => part.length !== 0);
   let [currentEventType, currentKeyState, currentKeyCode] = lineParts;
   
   current = {
@@ -128,6 +130,7 @@ function parseKeyLog(line) {
     keyEvents.push(keyEvent);
     keyEvent = [];
   }
+  console.info(keyEvent, keyEvents);
 }
 
 function mapKeyCombinations() {
