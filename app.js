@@ -3,13 +3,7 @@
 const fs = require('fs');
 const {spawn} = require('child_process');
 const minimist = require('minimist');
-const _ = require('lodash');
 
-// const loggingFile = `${__dirname}/data/key-logger.log`;
-
-// const loggingFileGlob = `${__dirname}/key-log-*.log`;
-// const loggingFileGlob = `${__dirname}/viterbi*.log`;
-//
 const xmodmapFile = `${__dirname}/xmodmap-as-expressions.log`;
 
 /**
@@ -47,7 +41,16 @@ if (!args.deviceId) {
   process.exit();
 }
 
-let readFilePromised = (filename) => {
+let keyList = [];
+run();
+
+async function run() {
+  let xmodmap = await readFilePromised(xmodmapFile);
+  keyList = await parseXmodmap(xmodmap);
+  await startKeyPressCapture(keyList);
+}
+
+function readFilePromised(filename) {
   return new Promise((resolve, reject) => {
     fs.readFile(filename, (error, data) => {
       if (error) {
@@ -57,12 +60,24 @@ let readFilePromised = (filename) => {
       }
     });
   });
-};
-// console.info(readFilePromised(xmodmapFile));
-readFilePromised(xmodmapFile)
-  .then(parseXmodmap)
-  .then(startKeyPressCapture)
-  .catch(error => console.error(error));
+}
+
+function parseXmodmap(file) {
+  let lines = file.toString().split('\n');
+  return new Promise((resolve, reject) => {
+    let keyList = [];
+    lines.forEach((line) => {
+      let re = /keycode\s{1,3}(\d{1,3}) = (\S+) (\S+)/;
+      let matches = line.match(re);
+      if (matches !== null) {
+        let [, keyCode, normal, shifted] = matches;
+        keyList[keyCode] = {normal: normal, shifted: shifted};
+      }
+    });
+
+    resolve(keyList);
+  });
+}
 
 function startKeyPressCapture(keyList) {
   let command = `xinput`;
@@ -70,58 +85,31 @@ function startKeyPressCapture(keyList) {
   let captureProcess = spawn(command, xinputTestArgs);
   console.info('startKeyPressCapture', args.deviceId);
 
-  captureProcess.on('exit', (code, signal) => {
-    console.info('exit', code, signal);
-  });
-  captureProcess.on('error', (error) => {
-    console.info('error', error);
-  });
-  captureProcess.on('close', (number, signal) => {
-    console.info('close', number, signal);
-  });
-  captureProcess.on('message', (message) => {
-    console.info('message', message);
-  });
+  captureProcess.on('exit', (code, signal) => { console.info('exit', code, signal); });
+  captureProcess.on('error', (error) => { console.info('error', error); });
+  captureProcess.on('close', (number, signal) => { console.info('close', number, signal); });
+  captureProcess.on('message', (message) => { console.info('message', message); });
 
-  captureProcess.stdout.on('data', (data) => {
-    let keyData = data.toString().replace(/\r?\n?/g, '');
-    // console.log(`${keyData}`, keyData);
-    processKeyPresses(keyData)
-      .then(parseKeyPress)
-      .catch((error) => {
-        console.error(error);
-      });
-  });
+  captureProcess.stdout.on('data', processStdOut);
+  captureProcess.stderr.on('data', processStdErr);
 
-  captureProcess.stderr.on('data', (data) => {
-    console.error(`stderr: ${data}`);
-  });
+  return captureProcess;
 }
 
-function parseXmodmap(file) {
-  let lines = file.toString().split('\n');
-  // console.log('parseXmodmap', lines);
-  return new Promise((resolve, reject) => {
-    let keyList = [];
-    lines.forEach((line) => {
-      let re = /keycode\s{1,3}(\d{1,3}) = (\S+) (\S+)/;
-      let matches = line.match(re);
-      if (matches !== null) {
-        let [full, keyCode, normal, shifted, ...rest] = matches;
-        keyList[keyCode] = {normal: normal, shifted: shifted};
-      }
-    });
+async function processStdOut(data) {
+  let keyData = data.toString().replace(/\r?\n?/g, '');
+  let keyEvent = await processKeyPresses(keyData);
+  let keyCombo = await parseKeyPress(keyEvent);
 
-    // console.info('processed keylist', keyList);
-    resolve(keyList);
-  });
+  console.info('->', keyCombo.join(' + '));
 }
 
-let keyList = {};
+function processStdErr(error) {
+  console.error(`stderr: ${error}`);
+}
 
 let keyEvent = [];
 let keyEvents = [];
-
 let pressCount = 0;
 
 function processKeyPresses(line) {
@@ -147,53 +135,18 @@ function processKeyPresses(line) {
     }
 
     if (pressCount === 0) {
-      // console.info('resolving ', keyEvents);
       resolve(keyEvents);
       keyEvents = [];
     }
-
-    // console.info(pressCount, `key event`, keyEvent, `keyEvents`, keyEvents);
   });
 }
 
 function parseKeyPress(keyEvent) {
-  console.info('parseKeyPress key event', keyEvent.length, keyEvent, keyList);
-
-  // let keyCombo = keyList[keyEvent.keyCode].normal;
-  // let keyCombo = keyEvents.map(event => keyList[event.keyCode].normal);
-  keyEvent.forEach((events) => {
-    let keyCombo = events.map(event => keyList[event.keyCode].normal);
-    console.info(keyCombo);
+  let keyCombo = [];
+  return new Promise((resolve, reject) => {
+    keyEvent.forEach((events) => {
+      keyCombo = events.map(event => keyList[event.keyCode].normal);
+    });
+    resolve(keyCombo);
   });
-}
-
-function mapKeyCombinations() {
-  let keyPresses = [];
-  let analysedPresses = {};
-  keyEvents.forEach((events) => {
-    let keyCombo = events.map(event => keyList[event.keyCode].normal);
-    keyPresses.push(keyCombo);
-
-    let joinedCombo = keyCombo.join(' + ');
-    if (!analysedPresses[joinedCombo]) {
-      analysedPresses[joinedCombo] = 1;
-    } else {
-      analysedPresses[joinedCombo]++;
-    }
-    // console.info(events.length, joinedCombo);
-  });
-  // console.info(analysedPresses);
-
-  let analysedPressesArray = _.map(analysedPresses, (count, press) => {
-    return {press: press, count: count};
-  });
-  // console.info(analysedPressesArray);
-  let sortedAnalysedPresses = _.sortBy(analysedPressesArray, (a) => {
-    return -a.count;
-  });
-  console.log(sortedAnalysedPresses);
-
-  // keyPresses.map((combo) => {
-  //
-  // })
 }
