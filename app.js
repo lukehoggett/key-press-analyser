@@ -3,6 +3,7 @@
 const fs = require('fs');
 const {spawn} = require('child_process');
 const minimist = require('minimist');
+const WebSocket = require('ws');
 
 const xmodmapFile = `${__dirname}/xmodmap-as-expressions.log`;
 
@@ -45,6 +46,8 @@ let keyList = [];
 run();
 
 async function run() {
+  let wss = initWsServer();
+  console.info('web socket server', wss);
   let xmodmap = await readFilePromised(xmodmapFile);
   keyList = await parseXmodmap(xmodmap);
   await startKeyPressCapture(keyList);
@@ -102,6 +105,7 @@ async function processStdOut(data) {
   let keyCombo = await parseKeyPress(keyEvent);
 
   console.info('->', keyCombo.join(' + '));
+  socket.send(keyCombo.join(' + '));
 }
 
 function processStdErr(error) {
@@ -149,4 +153,30 @@ function parseKeyPress(keyEvent) {
     });
     resolve(keyCombo);
   });
+}
+
+let socket = null;
+function initWsServer() {
+  const wss = new WebSocket.Server({port: 9999});
+
+  wss.on('open', function open() {
+    console.info('socket open');
+    wss.send('something');
+  });
+
+  wss.on('connection', (ws, req) => {
+    socket = ws;
+    ws.on('message', (message) => {
+    //
+    // Here we can now use session parameters.
+    //
+      console.log(`WS message ${message}`);
+      ws.send('something');
+    });
+  });
+
+  wss.on('message', function incoming(data) {
+    console.log(data);
+  });
+  return wss;
 }
