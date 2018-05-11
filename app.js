@@ -29,7 +29,45 @@ let args = minimist(process.argv.slice(2), {
   }
 });
 
-console.info('process args', args);
+start();
+
+async function start() {
+  let process = await spawnXinputList();
+}
+
+function spawnXinputList() {
+  let command = `xinput`;
+  let xinputListArgs = [`list`];
+  let listProcess = spawn(command, xinputListArgs);
+  console.info('spawnXinputList');
+
+  listProcess.on('exit', (code, signal) => { console.info('exit', code, signal); });
+  listProcess.on('error', (error) => { console.info('error', error); });
+  listProcess.on('close', (number, signal) => { console.info('close', number, signal); });
+  listProcess.on('message', (message) => { console.info('message', message); });
+
+  listProcess.stdout.on('data', processXinputListStdOut);
+  listProcess.stderr.on('data', processStdErr);
+
+  return listProcess;
+}
+
+function processXinputListStdOut(data) {
+  console.info('xinput list');
+  let keyboardList = data.toString().split('\n').filter((line) => {
+    return line.indexOf('keyboard') !== -1 && line.indexOf('Virtual') < 0;
+  }).map((keyboard) => {
+    let parts = keyboard.split(/\s{2,}|\t/);
+    return `${parts[1]} ${parts[2]}`;
+  });
+  console.info('inputList', keyboardList);
+
+  print('someting');
+}
+
+console.info('exit');
+// process.exit();
+// console.info('process args', args);
 
 if (!args.filename) {
   console.error('Please provide a file to analyse `node app.js -f <filename>`');
