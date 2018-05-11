@@ -50,7 +50,7 @@ async function run() {
   console.info('web socket server', wss);
   let xmodmap = await readFilePromised(xmodmapFile);
   keyList = await parseXmodmap(xmodmap);
-  await startKeyPressCapture(keyList);
+  await spawnXinputCapture(keyList);
 }
 
 function readFilePromised(filename) {
@@ -82,11 +82,11 @@ function parseXmodmap(file) {
   });
 }
 
-function startKeyPressCapture(keyList) {
+function spawnXinputCapture(keyList) {
   let command = `xinput`;
   let xinputTestArgs = [`test`, `${args.deviceId}`];
   let captureProcess = spawn(command, xinputTestArgs);
-  console.info('startKeyPressCapture', args.deviceId);
+  console.info('spawnXinputCapture', args.deviceId);
 
   captureProcess.on('exit', (code, signal) => { console.info('exit', code, signal); });
   captureProcess.on('error', (error) => { console.info('error', error); });
@@ -105,7 +105,13 @@ async function processStdOut(data) {
   let keyCombo = await parseKeyPress(keyEvent);
 
   console.info('->', keyCombo.join(' + '));
-  socket.send(keyCombo.join(' + '));
+  try {
+    if (socket !== null) {
+      socket.send(keyCombo.join(' + '));
+    }
+  } catch (e) {
+    console.error('Socket Error:', e);
+  }
 }
 
 function processStdErr(error) {
