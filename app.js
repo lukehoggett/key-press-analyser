@@ -96,12 +96,37 @@ function startKeyPressCapture(keyList) {
   return captureProcess;
 }
 
+let keyLog = {
+  raw: {},
+  combos: {},
+  series: []
+};
+
 async function processStdOut(data) {
   let keyData = data.toString().replace(/\r?\n?/g, '');
   let keyEvent = await processKeyPresses(keyData);
   let keyCombo = await parseKeyPress(keyEvent);
 
-  console.info('->', keyCombo.join(' + '));
+  // raw
+  keyCombo.forEach((key) => {
+    if (keyLog.raw[key] === undefined) {
+      keyLog.raw[key] = 1;
+    } else {
+      keyLog.raw[key]++;
+    }
+  });
+
+  // combos
+  let comboHash = keyCombo.join(' + ');
+  if (keyLog.combos[comboHash] === undefined) {
+    keyLog.combos[comboHash] = 1;
+  } else {
+    keyLog.combos[comboHash]++;
+  }
+
+  // series
+  keyLog.series.push(keyCombo);
+  console.info('->', keyCombo, keyCombo.join(' + '), keyLog.combos[comboHash], keyLog.raw, keyLog.series);
 }
 
 function processStdErr(error) {
