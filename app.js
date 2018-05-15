@@ -62,7 +62,7 @@ function processXinputListStdOut(data) {
   });
   console.info('inputList', keyboardList);
 
-  print('someting');
+  console.log('someting');
 }
 
 console.info('exit');
